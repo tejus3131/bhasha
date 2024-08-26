@@ -1,17 +1,17 @@
 // src/ast.rs
 
-#[derive(Debug)]
-pub enum Expr {
+#[derive(Debug, Clone)]
+pub enum Expression {
     Integer(i64),
     Float(f64),
     String(String),
     Boolean(bool),
     Identifier(String),
-    BinaryOp(Box<Expr>, BinOp, Box<Expr>),
+    BinaryOp(Box<Expression>, BinOp, Box<Expression>),
     None
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinOp {
     Plus,
     Minus,
@@ -28,20 +28,23 @@ pub enum BinOp {
     Or,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
-    Assignment(String, Expr),
+    Declaration(String, Expression),
+    Assignment(String, Expression),
     If {
-        condition: Expr,
+        condition: Expression,
         then_block: Vec<Statement>,
         else_block: Vec<Statement>,
     },
     While {
-        condition: Expr,
+        condition: Expression,
         body: Vec<Statement>,
     },
-    Print(Expr),
+    Print(Expression),
     Input(String, String),
+    FunctionDef (String, Vec<Expression>, Vec<Statement>, Expression ),
+    FunctionCall (String, Vec<Expression>, String )
 }
 
 #[derive(Debug)]

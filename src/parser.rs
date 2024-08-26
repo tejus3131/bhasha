@@ -47,11 +47,12 @@ impl<'a> Parser<'a> {
         }
         self.current_token = current_state;
     }
-
+    
     pub fn parse(&mut self) -> Program {
         let mut statements = Vec::new();
-
+        
         while self.has_next() {
+            // println!("{:?}", self.current_token());
             if let Some(statement) = self.parse_statement() {
                 // println!("{:?}", statement);
                 statements.push(statement);
@@ -61,19 +62,96 @@ impl<'a> Parser<'a> {
         Program { statements }
     }
 
+    fn parse_function_def(&mut self) -> Statement {
+        self.next_token(); // banao
+        // println!("{:?}", self.current_token());
+        let func_name = if let Token::Identifier(name) = self.current_token() {
+            name.clone()
+        } else {
+            panic!("Expected identifier after 'banao'")
+        };
+
+        self.next_token();
+        // println!("{:?}", self.current_token());
+
+        self.next_token(); // jo le
+        // println!("{:?}", self.current_token());
+
+        let mut params = Vec::new();
+        while self.current_token() != Token::ParamEnd {
+            params.push(self.parse_primary());
+            self.next_token(); 
+            // println!("{:?}", self.current_token());
+        }
+
+        self.next_token(); // fir
+        // println!("{:?}", self.current_token());
+        
+        let body = self.parse_block();
+
+        self.next_token(); // wapas karo
+        // println!("{:?}", self.current_token());
+
+        let return_data = self.parse_expression();
+
+        Statement::FunctionDef(func_name, params, body, return_data)
+    }
+
+    fn parse_function_call(&mut self) -> Statement {
+
+        self.next_token(); // chalao
+        // println!("{:?}", self.current_token());
+        
+        let func_name = if let Token::Identifier(name) = self.current_token() {
+            name.clone()
+        } else {
+            panic!("Expected identifier after 'mana'")
+        };
+        self.next_token(); // func_name
+        // println!("{:?}", self.current_token());
+        
+        let mut args: Vec<Expression> = Vec::new();
+        while self.current_token() != Token::FunctionReturn {
+            args.push(self.parse_primary());
+            self.next_token(); 
+            // println!("{:?}", self.current_token());
+        }
+
+        self.next_token(); // par
+        // println!("{:?}", self.current_token());
+        
+        let var_name = if let Token::Identifier(name) = self.current_token() {
+            name.clone()
+        } else {
+            panic!("Expected identifier after 'mana'")
+        };
+        self.next_token(); // return_var
+        // println!("{:?}", self.current_token());
+
+        if self.current_token() != Token::FunctionCallEnd {
+            panic!("Invalid Syntax")
+        } else {
+            self.next_token(); //  me
+        }
+
+        Statement::FunctionCall(func_name, args, var_name)
+    }
+
     fn parse_statement(&mut self) -> Option<Statement> {
         let statement = match self.current_token() {
-            Token::Let => Some(self.parse_assignment()),
+            Token::Let => Some(self.parse_declaration()),
             Token::If => Some(self.parse_if()),
             Token::While => Some(self.parse_while()),
             Token::Print => Some(self.parse_print()),
             Token::Input => Some(self.parse_input()),
+            Token::FunctionDef => Some(self.parse_function_def()),
+            Token::FunctionCallStart => Some(self.parse_function_call()),
             _ => None,
         };
         statement
     }
 
-    fn parse_assignment(&mut self) -> Statement {
+    fn parse_declaration(&mut self) -> Statement {
         self.next_token();
         // println!("{:?}", self.current_token());
 
@@ -94,7 +172,7 @@ impl<'a> Parser<'a> {
 
         let expr = self.parse_expression();
 
-        Statement::Assignment(var_name, expr)
+        Statement::Declaration(var_name, expr)
     }
 
     fn parse_if(&mut self) -> Statement {
@@ -130,6 +208,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_print(&mut self) -> Statement {
+        // println!("{:?}", self.current_token());
         self.next_token();
         // println!("{:?}", self.current_token());
 
@@ -161,7 +240,7 @@ impl<'a> Parser<'a> {
         Statement::Input(var_name, var_type)
     }
 
-    fn parse_expression(&mut self) -> Expr {
+    fn parse_expression(&mut self) -> Expression {
         // This is a simplified version, only handles binary operations and literals for now
 
         let left = self.parse_primary();
@@ -171,10 +250,13 @@ impl<'a> Parser<'a> {
         let right = self.parse_primary();
         self.next_token();
         // println!("{:?}", self.current_token());
-
+        
         match right {
-            Expr::None => {
-                self.previous_token();
+            Expression::None => {
+                if self.current_token() != Token::TheEnd {
+                    // println!("{:?}", self.current_token());
+                    self.previous_token();
+                }
                 left
             }
             _ => {
@@ -182,7 +264,7 @@ impl<'a> Parser<'a> {
                     let op = self.parse_binary_operator().unwrap();
                     self.next_token();
                     // println!("{:?}", self.current_token());
-                    Expr::BinaryOp(Box::new(left), op, Box::new(right))
+                    Expression::BinaryOp(Box::new(left), op, Box::new(right))
                 } else {
                     left
                 }
@@ -190,15 +272,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_primary(&mut self) -> Expr {
+    fn parse_primary(&mut self) -> Expression {
         match self.current_token() {
-            Token::Integer(value) => Expr::Integer(value),
-            Token::Float(value) => Expr::Float(value),
-            Token::String(value) => Expr::String(value),
-            Token::Identifier(name) => Expr::Identifier(name),
-            Token::True => Expr::Boolean(true),
-            Token::False => Expr::Boolean(false),
-            _ => Expr::None,
+            Token::Integer(value) => Expression::Integer(value),
+            Token::Float(value) => Expression::Float(value),
+            Token::String(value) => Expression::String(value),
+            Token::Identifier(name) => Expression::Identifier(name),
+            Token::True => Expression::Boolean(true),
+            Token::False => Expression::Boolean(false),
+            _ => Expression::None,
         }
     }
 
@@ -232,6 +314,10 @@ impl<'a> Parser<'a> {
 
             if self.current_token() == Token::BlockEnd {
                 self.next_token();
+                break;
+            }
+
+            if self.current_token() == Token::Return {
                 break;
             }
         }

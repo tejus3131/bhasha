@@ -3,7 +3,7 @@ use logos::Logos;
 #[derive(Logos, Debug, PartialEq, Clone)]
 pub enum Token {
     // Keywords
-    #[token("mana")]
+    #[token("mano")]
     Let,
     #[token("agar")]
     If,
@@ -17,6 +17,22 @@ pub enum Token {
     StatementEnd,
     #[token("samapt")]
     TheEnd,
+
+    //function
+    #[token("banao")]
+    FunctionDef,
+    #[token("wapas karo")]
+    Return,
+    #[token("jo le")]
+    ParamStart,
+    #[token("fir")]
+    ParamEnd,
+    #[token("chalao")]
+    FunctionCallStart,
+    #[token("par")]
+    FunctionReturn,
+    #[token("me")]
+    FunctionCallEnd,
 
     // Literals
     #[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]

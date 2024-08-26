@@ -25,10 +25,19 @@ fn main() {
 
     let source = format!("{} samapt", source);
     
+    // let lexer = Token::tokenize(&source);
+    
+    // for token in lexer {
+    //     println!("{:?}", token);
+    // }
+    
     let mut lexer = Token::tokenize(&source);
+
     let mut parser = Parser::new(&mut lexer);
 
     let program = parser.parse();
+
+    println!("{:?}", program);
 
     let mut interpreter = Interpreter::new();
     

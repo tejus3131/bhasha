@@ -1,7 +1,8 @@
-use crate::ast::{BinOp, Expr, Program, Statement};
+use crate::ast::{BinOp, Expression, Program, Statement};
 
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::process::exit;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -14,23 +15,25 @@ pub enum Value {
 
 pub struct Interpreter {
     env: HashMap<String, Value>,
+    functions: HashMap<String, (Vec<String>, Vec<Statement>, Expression)>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
             env: HashMap::new(),
+            functions: HashMap::new()
         }
     }
 
-    fn eval_expr(&mut self, expr: &Expr) -> Value {
+    fn eval_expr(&mut self, expr: &Expression) -> Value {
         match expr {
-            Expr::Integer(i) => Value::Integer(*i),
-            Expr::Float(f) => Value::Float(*f),
-            Expr::String(s) => Value::String(s.clone()),
-            Expr::Boolean(b) => Value::Boolean(*b),
-            Expr::Identifier(name) => self.env.get(name).cloned().unwrap_or(Value::None),
-            Expr::BinaryOp(lhs, op, rhs) => {
+            Expression::Integer(i) => Value::Integer(*i),
+            Expression::Float(f) => Value::Float(*f),
+            Expression::String(s) => Value::String(s.clone()),
+            Expression::Boolean(b) => Value::Boolean(*b),
+            Expression::Identifier(name) => self.env.get(name).cloned().unwrap_or(Value::None),
+            Expression::BinaryOp(lhs, op, rhs) => {
                 let left = self.eval_expr(lhs);
                 let right = self.eval_expr(rhs);
                 match (left, right, op) {
@@ -96,16 +99,28 @@ impl Interpreter {
                     _ => panic!("Invalid operation"),
                 }
             }
-            Expr::None => panic!("Invalid Token"),
+            Expression::None => panic!("Invalid Token"),
         }
     }
 
     fn exec_stmt(&mut self, stmt: &Statement) {
         match stmt {
-            Statement::Assignment(name, expr) => {
+            Statement::Declaration(name, expr) => {
                 let value = self.eval_expr(expr);
                 self.env.insert(name.clone(), value);
             }
+
+            Statement::Assignment(name, expr) => {
+                self.env.get(name).unwrap_or_else(|| {
+                    println!("Identifier {:?} not found.", name);
+                    exit(0);
+                });
+
+                let value = self.eval_expr(expr);
+                
+                self.env.insert(name.clone(), value);
+            }
+
             Statement::If {
                 condition,
                 then_block,
@@ -181,9 +196,49 @@ impl Interpreter {
                         eprintln!("Error reading input: {}", error);
                     }
                 }
+            },
+            Statement::FunctionDef(name, params, body, return_expression) => {
+                let params = params.iter().map(|param| match param {
+                    Expression::Identifier(ident) => ident.clone(),
+                    _ => panic!("Invalid parameter"),
+                }).collect::<Vec<String>>();
+                
+                self.functions.insert(name.clone(), (params, body.to_vec(), return_expression.clone()));
+            },
+            Statement::FunctionCall(func_name, args, return_var) => {
+                let (params, body, return_stmt) = self.functions.get(func_name).unwrap().clone();
+
+                // Create a new scope for the function
+                let mut local_variables = self.env.clone();
+
+                for (param, arg) in params.iter().zip(args.iter()) {
+                    local_variables.insert(param.clone(), self.eval_expr(arg));
+                }
+        
+                let result = self.execute_block(body, local_variables, return_stmt);
+                
+                self.env.insert(return_var.to_string(), result);
+
             }
         }
     }
+    
+
+    fn execute_block(&mut self, body: Vec<Statement>, local_variables: HashMap<String, Value>, return_stmt: Expression) -> Value {
+        let original_scope = self.env.clone();
+        self.env = local_variables;
+
+        for statement in body {
+            self.exec_stmt(&statement);
+        }
+
+        let result = self.eval_expr(&return_stmt);
+
+        self.env = original_scope;
+
+        result
+    }
+    
 
     fn is_truthy(&self, value: &Value) -> bool {
         match value {
