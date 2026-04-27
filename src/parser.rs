@@ -303,22 +303,22 @@ impl<'a> Parser<'a> {
 
     fn parse_block(&mut self) -> Vec<Statement> {
         let mut statements = Vec::new();
-        while self.current_token() != Token::BlockEnd {
-            if let Some(statement) = self.parse_statement() {
-                statements.push(statement);
-            }
-
-            if self.current_token() == Token::Else {
-                break;
-            }
-
+        // `loop` + explicit BlockEnd handling: if the last statement left the cursor
+        // on `aage` (BlockEnd), a `while current != BlockEnd` never enters the body and
+        // would skip consuming the closing token (infinite parse loop on if/else).
+        loop {
             if self.current_token() == Token::BlockEnd {
                 self.next_token();
                 break;
             }
-
+            if self.current_token() == Token::Else {
+                break;
+            }
             if self.current_token() == Token::Return {
                 break;
+            }
+            if let Some(statement) = self.parse_statement() {
+                statements.push(statement);
             }
         }
         statements
